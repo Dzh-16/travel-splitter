@@ -1,22 +1,22 @@
-import { Trip, Member } from '@/lib/types';
-import { formatAmount } from '@/lib/settlement';
+import { TripRow } from '@/lib/types';
 
 interface TripCardProps {
-  trip: Trip;
+  trip: TripRow;
+  memberCount: number;
+  expenseCount: number;
+  totalExpense: number; // 分
   onClick: () => void;
   onDelete: () => void;
 }
 
-function memberInitials(members: Member[]): string {
-  return members
-    .slice(0, 3)
-    .map((m) => m.name.charAt(0))
-    .join('');
-}
-
-export default function TripCard({ trip, onClick, onDelete }: TripCardProps) {
-  const totalExpense = trip.expenses.reduce((sum, e) => sum + e.amount, 0);
-
+export default function TripCard({
+  trip,
+  memberCount,
+  expenseCount,
+  totalExpense,
+  onClick,
+  onDelete,
+}: TripCardProps) {
   return (
     <div
       onClick={onClick}
@@ -28,7 +28,7 @@ export default function TripCard({ trip, onClick, onDelete }: TripCardProps) {
             {trip.name}
           </h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            {trip.members.length} 位成员 · {trip.expenses.length} 笔支出
+            {memberCount} 位成员 · {expenseCount} 笔支出
           </p>
         </div>
         <button
@@ -46,17 +46,11 @@ export default function TripCard({ trip, onClick, onDelete }: TripCardProps) {
       </div>
 
       <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex items-center justify-center text-xs font-bold">
-            {memberInitials(trip.members)}
-          </div>
-          <span className="text-sm text-zinc-600 dark:text-zinc-400">
-            {trip.members.map((m) => m.name).join(', ').slice(0, 20)}
-            {trip.members.length > 2 ? '…' : ''}
-          </span>
-        </div>
+        <span className="font-mono text-xs text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded-lg">
+          {trip.invite_code}
+        </span>
         <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-          ¥{formatAmount(totalExpense)}
+          ¥{(totalExpense / 100).toFixed(2)}
         </span>
       </div>
     </div>

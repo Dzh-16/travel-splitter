@@ -1,22 +1,37 @@
 import { useState } from 'react';
-import { Trip, Expense } from '@/lib/types';
-import { saveTrip } from '@/lib/storage';
+import { MemberRow } from '@/lib/types';
+import { computeShares } from '@/lib/settlement';
+import CurrencySelect from './CurrencySelect';
 import Button from './ui/Button';
 import Input from './ui/Input';
 
 interface ExpenseFormProps {
-  trip: Trip;
-  onUpdate: (trip: Trip) => void;
+  members: MemberRow[];
+  defaultCurrency: string;
+  onSubmit: (input: {
+    title: string;
+    amount: number;
+    currency: string;
+    payerId: string;
+    shares: Record<string, number>;
+  }) => Promise<void>;
   onClose: () => void;
 }
 
-export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProps) {
+export default function ExpenseForm({
+  members,
+  defaultCurrency,
+  onSubmit,
+  onClose,
+}: ExpenseFormProps) {
   const [title, setTitle] = useState('');
-  const [amountYuan, setAmountYuan] = useState(''); // 用户输入的是"元"
-  const [payerId, setPayerId] = useState(trip.members[0]?.id ?? '');
+  const [amountYuan, setAmountYuan] = useState('');
+  const [currency, setCurrency] = useState(defaultCurrency);
+  const [payerId, setPayerId] = useState(members[0]?.id ?? '');
   const [involvedIds, setInvolvedIds] = useState<Set<string>>(
-    new Set(trip.members.map((m) => m.id))
+    new Set(members.map((m) => m.id))
   );
+  const [submitting, setSubmitting] = useState(false);
 
   function toggleMember(memberId: string) {
     const next = new Set(involvedIds);
@@ -28,7 +43,7 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
     setInvolvedIds(next);
   }
 
-  function submit() {
+  async function submit() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
 
@@ -38,22 +53,25 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
     if (!payerId) return;
     if (involvedIds.size === 0) return;
 
-    const expense: Expense = {
-      id: crypto.randomUUID(),
-      title: trimmedTitle,
-      amount: Math.round(yuan * 100), // 元 -> 分
-      payerId,
-      involvedMemberIds: [...involvedIds],
-      createdAt: new Date().toISOString(),
-    };
+    const amountCents = Math.round(yuan * 100);
+    const involvedArray = [...involvedIds];
+    const shares = computeShares(amountCents, involvedArray, payerId);
 
-    const updated = { ...trip, expenses: [...trip.expenses, expense] };
-    saveTrip(updated);
-    onUpdate(updated);
-    onClose();
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        title: trimmedTitle,
+        amount: amountCents,
+        currency,
+        payerId,
+        shares,
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  if (trip.members.length === 0) {
+  if (members.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-zinc-500 dark:text-zinc-400">请先添加成员</p>
@@ -73,16 +91,26 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
         placeholder="例如：酒店、晚餐、门票"
       />
 
-      <Input
-        label="金额 (元)"
-        type="number"
-        inputMode="decimal"
-        value={amountYuan}
-        onChange={(e) => setAmountYuan(e.target.value)}
-        placeholder="0.00"
-        step="0.01"
-        min="0"
-      />
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <Input
+            label="金额"
+            type="number"
+            inputMode="decimal"
+            value={amountYuan}
+            onChange={(e) => setAmountYuan(e.target.value)}
+            placeholder="0.00"
+            step="0.01"
+            min="0"
+          />
+        </div>
+        <div className="w-[120px]">
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+            币种
+          </label>
+          <CurrencySelect value={currency} onChange={setCurrency} />
+        </div>
+      </div>
 
       {/* 付款人 */}
       <div>
@@ -90,10 +118,11 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
           付款人
         </label>
         <div className="flex flex-wrap gap-2">
-          {trip.members.map((m) => (
+          {members.map((m) => (
             <button
               key={m.id}
               onClick={() => setPayerId(m.id)}
+              type="button"
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 payerId === m.id
                   ? 'bg-teal-500 text-white'
@@ -112,10 +141,11 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
           参与分摊成员
         </label>
         <div className="flex flex-wrap gap-2">
-          {trip.members.map((m) => (
+          {members.map((m) => (
             <button
               key={m.id}
               onClick={() => toggleMember(m.id)}
+              type="button"
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 involvedIds.has(m.id)
                   ? 'bg-teal-500 text-white'
@@ -137,8 +167,12 @@ export default function ExpenseForm({ trip, onUpdate, onClose }: ExpenseFormProp
       )}
 
       <div className="flex gap-3 mt-2">
-        <Button onClick={submit} className="flex-1" disabled={!title.trim() || !amountYuan || !payerId}>
-          确认添加
+        <Button
+          onClick={submit}
+          className="flex-1"
+          disabled={!title.trim() || !amountYuan || !payerId || submitting}
+        >
+          {submitting ? '添加中...' : '确认添加'}
         </Button>
         <Button variant="ghost" onClick={onClose}>
           取消

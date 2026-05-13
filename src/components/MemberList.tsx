@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Member, Trip } from '@/lib/types';
-import { saveTrip } from '@/lib/storage';
+import { MemberRow } from '@/lib/types';
 import Button from './ui/Button';
 import Input from './ui/Input';
 
 interface MemberListProps {
-  trip: Trip;
-  onUpdate: (trip: Trip) => void;
+  members: MemberRow[];
+  onAdd: (name: string) => Promise<void>;
+  onRemove: (memberId: string) => Promise<void>;
 }
 
 const AVATAR_COLORS = [
@@ -14,57 +14,48 @@ const AVATAR_COLORS = [
   'bg-orange-500', 'bg-green-500', 'bg-cyan-500', 'bg-amber-500',
 ];
 
-export default function MemberList({ trip, onUpdate }: MemberListProps) {
+export default function MemberList({ members, onAdd, onRemove }: MemberListProps) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function addMember() {
+  async function addMember() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const newMember: Member = {
-      id: crypto.randomUUID(),
-      name: trimmed,
-    };
-    const updated = { ...trip, members: [...trip.members, newMember] };
-    saveTrip(updated);
-    onUpdate(updated);
-    setName('');
-    setAdding(false);
+    setBusy(true);
+    try {
+      await onAdd(trimmed);
+      setName('');
+      setAdding(false);
+    } catch {
+      // 错误由父组件处理
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function removeMember(memberId: string) {
-    // 同时清理该成员相关的支出（作为付款人或参与人）
-    const updated = {
-      ...trip,
-      members: trip.members.filter((m) => m.id !== memberId),
-      expenses: trip.expenses
-        .map((e) => ({
-          ...e,
-          involvedMemberIds: e.involvedMemberIds.filter((id) => id !== memberId),
-        }))
-        .filter(
-          (e) =>
-            e.payerId !== memberId &&
-            e.involvedMemberIds.length > 0
-        ),
-    };
-    saveTrip(updated);
-    onUpdate(updated);
+  async function removeMember(memberId: string) {
+    setBusy(true);
+    try {
+      await onRemove(memberId);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-          成员 ({trip.members.length})
+          成员 ({members.length})
         </h3>
-        <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+        <Button variant="ghost" size="sm" onClick={() => setAdding(true)} disabled={busy}>
           + 添加
         </Button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-        {trip.members.map((member, idx) => (
+        {members.map((member, idx) => (
           <div
             key={member.id}
             className="flex flex-col items-center gap-1 flex-shrink-0 group relative"
@@ -81,18 +72,18 @@ export default function MemberList({ trip, onUpdate }: MemberListProps) {
               onClick={() => removeMember(member.id)}
               className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
               aria-label={`删除 ${member.name}`}
+              disabled={busy}
             >
-              ×
+              &times;
             </button>
           </div>
         ))}
 
-        {trip.members.length === 0 && (
+        {members.length === 0 && (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-2">还没有成员，点击添加</p>
         )}
       </div>
 
-      {/* 添加成员内联表单 */}
       {adding && (
         <div className="flex items-end gap-2 mt-3">
           <Input
@@ -103,7 +94,7 @@ export default function MemberList({ trip, onUpdate }: MemberListProps) {
             placeholder="输入姓名"
             autoFocus
           />
-          <Button size="sm" onClick={addMember}>
+          <Button size="sm" onClick={addMember} disabled={busy || !name.trim()}>
             添加
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>

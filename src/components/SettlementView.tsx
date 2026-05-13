@@ -1,20 +1,55 @@
+import { useCallback, useEffect, useState } from 'react';
+import { MemberRow, ExpenseRow, ExpenseParticipantRow } from '@/lib/types';
 import { calculateBalances, calculateTransfers, formatAmount } from '@/lib/settlement';
-import { Trip } from '@/lib/types';
+import { getExchangeRates } from '@/lib/currency';
 
 interface SettlementViewProps {
-  trip: Trip;
+  expenses: ExpenseRow[];
+  members: MemberRow[];
+  participantsByExpense: Record<string, ExpenseParticipantRow[]>;
+  baseCurrency: string;
 }
 
-export default function SettlementView({ trip }: SettlementViewProps) {
-  const balances = calculateBalances(trip);
-  const transfers = calculateTransfers(balances);
-  const totalExpense = trip.expenses.reduce((sum, e) => sum + e.amount, 0);
+export default function SettlementView({
+  expenses,
+  members,
+  participantsByExpense,
+  baseCurrency,
+}: SettlementViewProps) {
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const [ratesLoading, setRatesLoading] = useState(true);
 
-  if (balances.length === 0) {
+  // 加载汇率
+  useEffect(() => {
+    getExchangeRates(baseCurrency).then((r) => {
+      setRates(r);
+      setRatesLoading(false);
+    });
+  }, [baseCurrency]);
+
+  const balances = calculateBalances(
+    expenses,
+    members,
+    participantsByExpense,
+    rates,
+    baseCurrency
+  );
+  const transfers = calculateTransfers(balances);
+  const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+  if (members.length === 0) {
     return (
       <div className="text-center py-10">
         <div className="text-4xl mb-3">🧾</div>
         <p className="text-zinc-400 dark:text-zinc-500">还没有成员数据</p>
+      </div>
+    );
+  }
+
+  if (ratesLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -25,8 +60,13 @@ export default function SettlementView({ trip }: SettlementViewProps) {
       <div className="text-center">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">总支出</p>
         <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-          ¥{formatAmount(totalExpense)}
+          ¥{formatAmount(balances.reduce((s, b) => s + b.totalPaid, 0))}
         </p>
+        {Object.keys(rates).length > 0 && (
+          <p className="text-xs text-zinc-400 mt-1">
+            已按实时汇率换算为人民币
+          </p>
+        )}
       </div>
 
       {/* 每人余额卡片 */}
@@ -50,9 +90,7 @@ export default function SettlementView({ trip }: SettlementViewProps) {
               </div>
               <div
                 className={`text-lg font-bold ${
-                  b.balance >= 0
-                    ? 'text-green-500'
-                    : 'text-red-500'
+                  b.balance >= 0 ? 'text-green-500' : 'text-red-500'
                 }`}
               >
                 {b.balance >= 0 ? '+' : '-'}¥{formatAmount(Math.abs(b.balance))}

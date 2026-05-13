@@ -1,26 +1,24 @@
-"use client";
+'use client';
 
-import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
-import { Trip } from "@/lib/types";
-import { getTrip } from "@/lib/storage";
-import SettlementView from "@/components/SettlementView";
+import { use } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTrip } from '@/lib/hooks/useTrip';
+import SettlementView from '@/components/SettlementView';
+import Button from '@/components/ui/Button';
 
 export default function SettlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const {
+    trip,
+    members,
+    expenses,
+    participantsByExpense,
+    loading,
+    error,
+  } = useTrip(id);
 
-  useEffect(() => {
-    const t = getTrip(id);
-    if (t) {
-      setTrip(t);
-    } else {
-      router.push("/");
-    }
-  }, [id, router]);
-
-  if (!trip) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
@@ -28,9 +26,19 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
     );
   }
 
+  if (error || !trip) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-zinc-500 dark:text-zinc-400">{error || '旅行不存在'}</p>
+        <Button variant="secondary" className="mt-4" onClick={() => router.push('/')}>
+          返回首页
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* 返回按钮 */}
       <button
         onClick={() => router.push(`/trip/${trip.id}`)}
         className="inline-flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
@@ -43,7 +51,12 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
 
       <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">结算</h1>
 
-      <SettlementView trip={trip} />
+      <SettlementView
+        expenses={expenses}
+        members={members}
+        participantsByExpense={participantsByExpense}
+        baseCurrency={trip.default_currency}
+      />
     </div>
   );
 }
