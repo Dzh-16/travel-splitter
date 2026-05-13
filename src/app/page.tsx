@@ -102,9 +102,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key`}
             <TripCard
               key={trip.id}
               trip={trip}
-              memberCount={0}
-              expenseCount={0}
-              totalExpense={0}
+              memberCount={trip.memberCount}
+              expenseCount={trip.expenseCount}
+              totalExpense={trip.totalExpense}
               onClick={() => router.push(`/trip/${trip.id}`)}
               onDelete={() => handleDelete(trip.id)}
             />
