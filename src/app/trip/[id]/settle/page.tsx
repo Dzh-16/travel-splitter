@@ -16,7 +16,19 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
     participantsByExpense,
     loading,
     error,
+    notJoined,
   } = useTrip(id);
+
+  if (notJoined) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="text-6xl">🔒</div>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center">你还没有加入此旅行</p>
+        <Button onClick={() => router.push('/join')}>输入邀请码加入</Button>
+        <Button variant="ghost" onClick={() => router.push('/')}>返回首页</Button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

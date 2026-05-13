@@ -15,6 +15,7 @@ interface UseTripResult {
   participantsByExpense: Record<string, ExpenseParticipantRow[]>;
   loading: boolean;
   error: string | null;
+  notJoined: boolean; // 未通过邀请码加入此旅行
   addMember: (name: string) => Promise<void>;
   removeMember: (memberId: string) => Promise<void>;
   addExpense: (input: {
@@ -29,6 +30,18 @@ interface UseTripResult {
   refresh: () => Promise<void>;
 }
 
+/** 检查 tripId 是否在用户的 myTripIds 中 */
+function isAuthorized(tripId: string): boolean {
+  try {
+    const raw = localStorage.getItem('travel-splitter-my-trip-ids');
+    if (!raw) return false;
+    const ids: string[] = JSON.parse(raw);
+    return ids.includes(tripId);
+  } catch {
+    return false;
+  }
+}
+
 export function useTrip(tripId: string): UseTripResult {
   const [trip, setTrip] = useState<TripRow | null>(null);
   const [members, setMembers] = useState<MemberRow[]>([]);
@@ -38,9 +51,17 @@ export function useTrip(tripId: string): UseTripResult {
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notJoined, setNotJoined] = useState(false);
 
   /** 全量加载数据 */
   const loadData = useCallback(async () => {
+    // 检查是否已加入此旅行
+    if (!isAuthorized(tripId)) {
+      setNotJoined(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -213,6 +234,7 @@ export function useTrip(tripId: string): UseTripResult {
     participantsByExpense,
     loading,
     error,
+    notJoined,
     addMember,
     removeMember,
     addExpense,
