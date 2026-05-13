@@ -42,18 +42,24 @@ async function fetchStats(tripIds: string[]): Promise<Map<string, { members: num
     }
   }
 
-  // 查询支出数量和总额
+  // 查询支出：需要币种和锁定汇率，换算为人民币再合计
   const { data: expenseData } = await supabase
     .from('expenses')
-    .select('trip_id, amount')
+    .select('trip_id, amount, currency, exchange_rate')
     .in('trip_id', tripIds);
 
   if (expenseData) {
     for (const e of expenseData) {
       const s = stats.get(e.trip_id);
-      if (s) {
-        s.expenses++;
+      if (!s) continue;
+      s.expenses++;
+
+      if (e.currency === 'CNY' || !e.exchange_rate) {
+        // 人民币或没有锁定汇率：直接用原始金额
         s.total += e.amount;
+      } else {
+        // 外币且有锁定汇率：换算为人民币分
+        s.total += Math.round(e.amount / e.exchange_rate);
       }
     }
   }
