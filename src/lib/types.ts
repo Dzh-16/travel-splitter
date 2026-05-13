@@ -19,12 +19,13 @@ export interface MemberRow {
 
 /** expenses 表 */
 export interface ExpenseRow {
-  id: string; // UUID
-  trip_id: string; // FK → trips.id
+  id: string;
+  trip_id: string;
   title: string;
   amount: number; // 整数，单位为分（原始币种）
   currency: string; // 原始币种，如 'CNY', 'USD'
-  paid_by_member_id: string; // FK → members.id
+  paid_by_member_id: string;
+  exchange_rate: number | null; // 该币种 → CNY 的汇率（添加支出时锁定，CNY 为 null）
   created_at: string;
 }
 

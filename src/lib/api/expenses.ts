@@ -73,13 +73,13 @@ export async function addExpense(
     amount: number;
     currency: string;
     payerId: string;
-    shares: Record<string, number>; // memberId → share_amount (分)
+    exchangeRate: number | null; // 该币种 → CNY 的汇率（添加时锁定）
+    shares: Record<string, number>;
   }
 ): Promise<ExpenseRow | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  // 插入支出记录
   const { data: expData, error: expError } = await supabase
     .from('expenses')
     .insert({
@@ -88,6 +88,7 @@ export async function addExpense(
       amount: expense.amount,
       currency: expense.currency,
       paid_by_member_id: expense.payerId,
+      exchange_rate: expense.exchangeRate,
     })
     .select()
     .single();

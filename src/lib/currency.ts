@@ -1,7 +1,7 @@
 import { ExchangeRateCache } from './types';
 
-// 使用 frankfurter.app（免费，无需 API Key）
-const API_BASE = 'https://api.frankfurter.app';
+// 使用 frankfurter.dev（免费，无需 API Key，支持 CORS）
+const API_BASE = 'https://api.frankfurter.dev/v1';
 const CACHE_KEY = 'travel-splitter-fx-rates';
 const CACHE_TTL = 60 * 60 * 1000; // 1 小时
 
@@ -98,7 +98,7 @@ export function convertAmount(
 ): number {
   if (fromCurrency === toCurrency) return amountCents;
 
-  // frankfurter.app 的 rates 是 "1 基准币种 = X 目标币种" 的格式
+  // frankfurter.dev 的 rates 是 "1 基准币种 = X 目标币种" 的格式
   // 我们需要：先换算成基准币种，再换算成目标币种
   const fromRate = rates[fromCurrency];
   const toRate = rates[toCurrency];

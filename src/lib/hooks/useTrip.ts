@@ -22,6 +22,7 @@ interface UseTripResult {
     amount: number;
     currency: string;
     payerId: string;
+    exchangeRate: number | null;
     shares: Record<string, number>;
   }) => Promise<void>;
   removeExpense: (expenseId: string) => Promise<void>;
@@ -171,6 +172,7 @@ export function useTrip(tripId: string): UseTripResult {
       amount: number;
       currency: string;
       payerId: string;
+      exchangeRate: number | null;
       shares: Record<string, number>;
     }) => {
       setError(null);
@@ -178,7 +180,6 @@ export function useTrip(tripId: string): UseTripResult {
         const newExpense = await expensesApi.addExpense(tripId, input);
         if (newExpense) {
           setExpenses((prev) => [newExpense, ...prev]);
-          // 刷新参与人数据
           const parts = await expensesApi.getAllParticipantsForTrip(tripId);
           setParticipants(parts);
         }

@@ -9,7 +9,8 @@ import { convertToCNY } from './currency';
 
 /**
  * 计算每个成员的收支余额。
- * 所有金额统一转为人民币（分）进行计算。
+ * 优先使用每笔支出自带的 exchange_rate（添加时锁定），
+ * 没有锁定的旧数据回退到传入的 exchangeRates。
  */
 export function calculateBalances(
   expenses: ExpenseRow[],
@@ -32,14 +33,17 @@ export function calculateBalances(
     const payerId = expense.paid_by_member_id;
     const currency = expense.currency;
 
-    // 付款人已付金额 → 转为人民币
-    const paidInCNY = convertToCNY(expense.amount, currency, exchangeRates);
+    // 用这笔支出锁定的汇率转人民币，没有锁定的旧数据用实时汇率兜底
+    const rate = expense.exchange_rate
+      ? { [currency]: expense.exchange_rate }
+      : exchangeRates;
+
+    const paidInCNY = convertToCNY(expense.amount, currency, rate);
     paidMap.set(payerId, (paidMap.get(payerId) ?? 0) + paidInCNY);
 
-    // 从 expense_participants 读取每个人的分摊金额
     const participants = participantsByExpense[expense.id] ?? [];
     for (const p of participants) {
-      const shareInCNY = convertToCNY(p.share_amount, currency, exchangeRates);
+      const shareInCNY = convertToCNY(p.share_amount, currency, rate);
       owedMap.set(p.member_id, (owedMap.get(p.member_id) ?? 0) + shareInCNY);
     }
   }
@@ -63,7 +67,6 @@ export function calculateBalances(
 /**
  * 贪心算法生成最小转账方案。
  * 正余额 = 应收，负余额 = 应付。
- * 注意：creditors 必须创建副本，避免修改原始 balances。
  */
 export function calculateTransfers(balances: Balance[]): Transfer[] {
   const epsilon = 1;
@@ -74,7 +77,7 @@ export function calculateTransfers(balances: Balance[]): Transfer[] {
 
   const creditors = balances
     .filter((b) => b.balance > epsilon)
-    .map((b) => ({ ...b })) // 创建副本，避免污染原始 balances 数组
+    .map((b) => ({ ...b }))
     .sort((a, b) => b.balance - a.balance);
 
   const transfers: Transfer[] = [];

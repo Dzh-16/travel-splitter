@@ -66,12 +66,19 @@ export default function ExpenseList({
                   <p className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {currency?.symbol ?? '¥'}{(expense.amount / 100).toFixed(2)}
                   </p>
-                  <p className="text-xs text-zinc-400">
-                    人均 {currency?.symbol ?? '¥'}
-                    {participants.length > 0
-                      ? (expense.amount / participants.length / 100).toFixed(2)
-                      : '0.00'}
-                  </p>
+                  {/* 外币显示 CNY 等价，本币显示人均 */}
+                  {expense.currency !== 'CNY' && expense.exchange_rate ? (
+                    <p className="text-xs text-zinc-400">
+                      约 ¥{(Math.round(expense.amount / expense.exchange_rate) / 100).toFixed(2)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-400">
+                      人均 {currency?.symbol ?? '¥'}
+                      {participants.length > 0
+                        ? (expense.amount / participants.length / 100).toFixed(2)
+                        : '0.00'}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => onRemove(expense.id)}

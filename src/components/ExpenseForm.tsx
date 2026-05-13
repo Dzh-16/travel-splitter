@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { MemberRow } from '@/lib/types';
 import { computeShares } from '@/lib/settlement';
+import { getCurrencyInfo } from '@/lib/currencies';
+import { getExchangeRates } from '@/lib/currency';
 import CurrencySelect from './CurrencySelect';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -13,6 +15,7 @@ interface ExpenseFormProps {
     amount: number;
     currency: string;
     payerId: string;
+    exchangeRate: number | null; // 该币种 → CNY 的汇率（添加时锁定）
     shares: Record<string, number>;
   }) => Promise<void>;
   onClose: () => void;
@@ -33,6 +36,14 @@ export default function ExpenseForm({
   );
   const [submitting, setSubmitting] = useState(false);
 
+  const currencyInfo = getCurrencyInfo(currency);
+  const symbol = currencyInfo?.symbol ?? '¥';
+  const isForeign = currency !== 'CNY';
+
+  // 预览：外币时同时显示原始金额和 CNY 估算
+  const amountNum = parseFloat(amountYuan);
+  const perPerson = amountNum > 0 ? amountNum / involvedIds.size : 0;
+
   function toggleMember(memberId: string) {
     const next = new Set(involvedIds);
     if (next.has(memberId)) {
@@ -47,23 +58,31 @@ export default function ExpenseForm({
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
 
-    const yuan = parseFloat(amountYuan);
-    if (isNaN(yuan) || yuan <= 0) return;
+    const num = parseFloat(amountYuan);
+    if (isNaN(num) || num <= 0) return;
 
     if (!payerId) return;
     if (involvedIds.size === 0) return;
 
-    const amountCents = Math.round(yuan * 100);
-    const involvedArray = [...involvedIds];
-    const shares = computeShares(amountCents, involvedArray, payerId);
-
     setSubmitting(true);
     try {
+      // 外币支出：获取当前汇率并锁定
+      let exchangeRate: number | null = null;
+      if (isForeign) {
+        const rates = await getExchangeRates('CNY');
+        exchangeRate = rates[currency] ?? null;
+      }
+
+      const amountCents = Math.round(num * 100);
+      const involvedArray = [...involvedIds];
+      const shares = computeShares(amountCents, involvedArray, payerId);
+
       await onSubmit({
         title: trimmedTitle,
         amount: amountCents,
         currency,
         payerId,
+        exchangeRate,
         shares,
       });
     } finally {
@@ -158,11 +177,10 @@ export default function ExpenseForm({
         </div>
       </div>
 
-      {/* 预览 */}
-      {amountYuan && parseFloat(amountYuan) > 0 && (
+      {/* 预览：显示所选币种符号 */}
+      {amountNum > 0 && (
         <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 text-sm text-zinc-600 dark:text-zinc-400">
-          人均 ¥{(parseFloat(amountYuan) / involvedIds.size).toFixed(2)} ·{' '}
-          {involvedIds.size} 人分摊
+          人均 {symbol}{perPerson.toFixed(2)} · {involvedIds.size} 人分摊
         </div>
       )}
 
