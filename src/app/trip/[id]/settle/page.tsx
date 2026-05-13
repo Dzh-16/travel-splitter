@@ -1,0 +1,49 @@
+"use client";
+
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
+import { Trip } from "@/lib/types";
+import { getTrip } from "@/lib/storage";
+import SettlementView from "@/components/SettlementView";
+
+export default function SettlePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [trip, setTrip] = useState<Trip | null>(null);
+
+  useEffect(() => {
+    const t = getTrip(id);
+    if (t) {
+      setTrip(t);
+    } else {
+      router.push("/");
+    }
+  }, [id, router]);
+
+  if (!trip) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* 返回按钮 */}
+      <button
+        onClick={() => router.push(`/trip/${trip.id}`)}
+        className="inline-flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        返回 {trip.name}
+      </button>
+
+      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">结算</h1>
+
+      <SettlementView trip={trip} />
+    </div>
+  );
+}
